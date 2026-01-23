@@ -49,8 +49,27 @@ class App(ZeroApp):
         return True
 
     def settings_menu(self):
-        mc = [["Edit names", self.edit_names]]
+        mc = [
+          ["Add lists", self.add_list],
+          ["Edit names", self.edit_names],
+          ["Rename app", self.rename_app],
+        ]
         Menu(mc, self.i, self.o, name=self.menu_name+" settings menu").activate()
+
+    def add_list(self):
+        name = UniversalInput(self.i, self.o, message="List name:", name="New list name input").activate()
+        if name:
+            list_obj = {"name":name, "entries":[]}
+            self.config["lists"].append(list_obj)
+            self.save_config()
+
+    def rename_app(self):
+        current_name = self.menu_name
+        name = UniversalInput(self.i, self.o, value=current_name, message="App name:", name="New app name input").activate()
+        if name:
+            self.menu_name = name
+            self.config["app_name"] = name
+            self.save_config()
 
     def edit_names(self):
         def get_contents():
@@ -58,7 +77,7 @@ class App(ZeroApp):
             for index, list in enumerate(self.config["lists"]):
                 mc.append([list.get("name", "List name missing!"), lambda x=index: self.edit_name(x)])
             return mc
-        Menu([], self.i, self.o, contents_hook=get_contents, name=self.menu_name+" name edit menu").activate()
+        Menu([], self.i, self.o, contents_hook=get_contents, name=self.menu_name+" names edit menu").activate()
 
     def edit_name(self, index):
         current_name = self.config["lists"][index].get("name", "")
@@ -67,15 +86,39 @@ class App(ZeroApp):
             self.config["lists"][index]["name"] = name
             self.save_config()
 
-    def list_menu(self, list):
-        Printer(f"List {list}", self.i, self.o, 2)
+    def add_entry(self, list_index):
+        entry = UniversalInput(self.i, self.o, message="Entry name:", name=f"List {list_index} new entry name input").activate()
+        if entry:
+            self.config["lists"][list_index]["entries"].append(entry)
+            self.save_config()
+
+    def edit_entry(self, list_index, entry_index):
+        current_name = self.config["lists"][list_index]["entries"][entry_index]
+        entry = UniversalInput(self.i, self.o, value=current_name, message="Entry name:", name=f"List {list_index} entry name edit input").activate()
+        if entry:
+            self.config["lists"][list_index]["entries"][entry_index] = entry
+            self.save_config()
+        elif entry == "": # empty string and not None - so the user removed entry contents and pressed Enter, instead of pressing Left
+            # removing the entry from the list!
+            self.config["lists"][list_index]["entries"].pop(entry_index)
+            self.save_config()
+
+    def list_menu(self, list_index):
+        def get_contents():
+            mc = []
+            list = self.config["lists"][list_index]
+            for entry_index, entry in enumerate(list.get("entries", [])):
+                mc.append([entry, lambda x=entry_index: self.edit_entry(list_index, x)])
+            mc.append(["Add entry", lambda: self.add_entry(list_index)])
+            return mc
+        Menu([], self.i, self.o, contents_hook=get_contents, name=self.menu_name+" main menu").activate()
 
     def on_start(self):
         """This function is called when you click on the app in the main menu"""
         def get_contents():
             mc = []
-            for list in self.config["lists"]:
-                mc.append([list.get("name", "List name missing!"), lambda x=list: self.list_menu(x)])
+            for index, list in enumerate(self.config["lists"]):
+                mc.append([list.get("name", "List name missing!"), lambda x=index: self.list_menu(x)])
             mc.append(["Settings", self.settings_menu])
             return mc
         m = Menu([], self.i, self.o, contents_hook=get_contents, name=self.menu_name+" main menu")
