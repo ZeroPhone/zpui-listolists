@@ -1,5 +1,5 @@
 from zpui_lib.helpers import setup_logger, local_path_gen, read_or_create_config, save_config_method_gen
-from zpui_lib.ui import PrettyPrinter as Printer, Menu
+from zpui_lib.ui import PrettyPrinter as Printer, Menu, UniversalInput
 from zpui_lib.apps import ZeroApp
 
 local_path = local_path_gen(__name__)
@@ -49,7 +49,21 @@ class App(ZeroApp):
         return True
 
     def settings_menu(self):
-        Printer("Settings", self.i, self.o, 2)
+        mc = [["Edit names", self.edit_names]]
+        Menu(mc, self.i, self.o, name=self.menu_name+" settings menu").activate()
+
+    def edit_names(self):
+        mc = []
+        for index, list in enumerate(self.config["lists"]):
+            mc.append([list.get("name", "List name missing!"), lambda x=index: self.edit_name(x)])
+        Menu(mc, self.i, self.o, name=self.menu_name+" name edit menu").activate()
+
+    def edit_name(self, index):
+        current_name = self.config["lists"][index].get("name", "")
+        name = UniversalInput(self.i, self.o, value=current_name, message="List name:", name=f"List {index} ({current_name}) name input").activate()
+        if name:
+            self.config["lists"][index]["name"] = name
+            self.save_config()
 
     def list_menu(self, list):
         Printer(f"List {list}", self.i, self.o, 2)
