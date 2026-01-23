@@ -1,4 +1,4 @@
-from zpui_lib.helpers import setup_logger, local_path_gen
+from zpui_lib.helpers import setup_logger, local_path_gen, read_or_create_config, save_config_method_gen
 from zpui_lib.ui import PrettyPrinter as Printer, Menu
 from zpui_lib.apps import ZeroApp
 
@@ -9,14 +9,32 @@ module_path = "personal/" # app path, needed to place your app in a correct menu
 # for app directory paths, see https://github.com/ZeroPhone/ZPUI/tree/master/apps
 # (do check that the directory you're using, isn't an app)
 
+default_config = """app_name: List o' lists
+lists:
+  - name: List one
+    entries:
+     - First entry
+     - Second entry
+     - Third entry
+  - name: List two
+    entries:
+     - First entry 2
+     - Second entry 2
+     - Third entry 2
+"""
+
 class App(ZeroApp):
-    menu_name = "Example app" # App name as seen in main menu while using the system
+    menu_name = "List o' lists" # App name as seen in main menu while using the system
+    config_filename = "config.yaml"
 
     def init_app(self):
         # this is where you put commands that need to run when ZPUI loads
         # if you want to do something long-winded here, consider using BackgroundRunner!
         # feel free to completely remove this function if it's not used
-        pass
+        self.config = read_or_create_config(local_path(self.config_filename), default_config, self.menu_name+" app")
+        logger.info(f"Our config looks like this: {self.config}")
+        self.save_config = save_config_method_gen(self, local_path(self.config_filename))
+        self.menu_name = self.config.get("app_name", self.menu_name) # now the app can be renamed from the config file
 
     def can_load(self):
         # this function is called to determine whether the app is able to run on this instance of ZPUI.
@@ -30,28 +48,23 @@ class App(ZeroApp):
         # NOTE: currently, `can_load()` is not supported in ZPUI for external apps, but it will be supported soon.
         return True
 
+    def settings_menu(self):
+        Printer("Settings", self.i, self.o, 2)
+
+    def list_menu(self, list):
+        Printer(f"List {list}", self.i, self.o, 2)
+
     def on_start(self):
         """This function is called when you click on the app in the main menu"""
-        mc = [ # menu contents
-          ["Test", self.test],
-        ]
-        m = Menu(mc, self.i, self.o) #, name=self.menu_name+" menu")
+        mc = []
+        for list in self.config["lists"]:
+            mc.append([list.get("name", "List name missing!"), lambda x=list: self.list_menu(x)])
+        mc.append(["Settings", self.settings_menu])
+        m = Menu(mc, self.i, self.o, name=self.menu_name+" main menu")
         logger.info("menu is starting yay")
         m.activate()
         logger.info("menu has exited yay")
-        # feel free to shorten this code like this:
-        #Menu(mc, self.i, self.o, name=self.menu_name+" menu").activate()
 
-    def test(self):
-        # executed when you select "Test" in the menu
-        # example for how to read files from the app directory
-        text = self.get_text()
-        Printer(text, self.i, self.o, 5)
-
-    def get_text(self):
-        with open(local_path("text.txt"), 'r') as f:
-            text = f.read().strip()
-        return text
 
 
 ################################################
@@ -82,8 +95,8 @@ class Tests(unittest.TestCase):
     def test_simple(self):
         """Simple test. Checks if the app's get_text function actually returns text."""
         app = TestedApp()
-        # feel free to do any further sibstitutions here.
-        assert isinstance(app.get_text(), str)
+        # feel free to do any further substitutions here.
+        #assert isinstance(app.get_text(), str)
 
 if __name__ == "__main__":
     print("Warning: running this app directly will not make it launch. See the README for installation instructions.\n")
