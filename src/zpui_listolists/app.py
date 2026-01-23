@@ -53,10 +53,12 @@ class App(ZeroApp):
         Menu(mc, self.i, self.o, name=self.menu_name+" settings menu").activate()
 
     def edit_names(self):
-        mc = []
-        for index, list in enumerate(self.config["lists"]):
-            mc.append([list.get("name", "List name missing!"), lambda x=index: self.edit_name(x)])
-        Menu(mc, self.i, self.o, name=self.menu_name+" name edit menu").activate()
+        def get_contents():
+            mc = []
+            for index, list in enumerate(self.config["lists"]):
+                mc.append([list.get("name", "List name missing!"), lambda x=index: self.edit_name(x)])
+            return mc
+        Menu([], self.i, self.o, contents_hook=get_contents, name=self.menu_name+" name edit menu").activate()
 
     def edit_name(self, index):
         current_name = self.config["lists"][index].get("name", "")
@@ -70,11 +72,13 @@ class App(ZeroApp):
 
     def on_start(self):
         """This function is called when you click on the app in the main menu"""
-        mc = []
-        for list in self.config["lists"]:
-            mc.append([list.get("name", "List name missing!"), lambda x=list: self.list_menu(x)])
-        mc.append(["Settings", self.settings_menu])
-        m = Menu(mc, self.i, self.o, name=self.menu_name+" main menu")
+        def get_contents():
+            mc = []
+            for list in self.config["lists"]:
+                mc.append([list.get("name", "List name missing!"), lambda x=list: self.list_menu(x)])
+            mc.append(["Settings", self.settings_menu])
+            return mc
+        m = Menu([], self.i, self.o, contents_hook=get_contents, name=self.menu_name+" main menu")
         logger.info("menu is starting yay")
         m.activate()
         logger.info("menu has exited yay")
