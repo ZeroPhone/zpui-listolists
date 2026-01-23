@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "zpui-example"
+name = "zpui-listolists"
 version = "0.1"
 authors = [
   { name="Arya", email="arya@example.com" },
@@ -11,4 +11,4 @@ authors = [
 requires-python = ">=3.8"
 
 [project.entry-points."zpui_app.3rdparty"]
-zpui_example = "zpui_example:app"
+zpui_listolists = "zpui_listolists:app"
