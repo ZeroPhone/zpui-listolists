@@ -1,5 +1,5 @@
 from zpui_lib.helpers import setup_logger, local_path_gen, read_or_create_config, save_config_method_gen
-from zpui_lib.ui import PrettyPrinter as Printer, Menu, UniversalInput
+from zpui_lib.ui import PrettyPrinter as Printer, Menu, UniversalInput, DialogBox, MenuExitException
 from zpui_lib.apps import ZeroApp
 
 local_path = local_path_gen(__name__)
@@ -21,6 +21,7 @@ lists:
      - First entry 2
      - Second entry 2
      - Third entry 2
+deleted: []
 """
 
 class App(ZeroApp):
@@ -103,22 +104,61 @@ class App(ZeroApp):
             self.config["lists"][list_index]["entries"].pop(entry_index)
             self.save_config()
 
+    def remove_entry(self, list_index, entry_index):
+        db = DialogBox("yn", self.i, self.o, message="Remove entry?", name=self.menu_name+f"entry {list_index} {entry_index} removal DialogBox")
+        answer = db.activate()
+        if not answer:
+            return
+        entry = self.config["lists"][list_index]["entries"].pop(entry_index)
+        self.config["deleted"].append({"type":"entry", "list_index":list_index, "contents":entry})
+        self.save_config()
+        raise MenuExitException
+
+    def entry_menu(self, list_index, entry_index):
+        mc = [
+            ["Rename entry", lambda: self.edit_entry(list_index, entry_index)],
+            ["Remove entry", lambda: self.remove_entry(list_index, entry_index)],
+        ]
+        Menu(mc, self.i, self.o, name=self.menu_name+f" entry {list_index} {entry_index} options menu").activate()
+
     def list_menu(self, list_index):
         def get_contents():
             mc = []
             list = self.config["lists"][list_index]
             for entry_index, entry in enumerate(list.get("entries", [])):
-                mc.append([entry, lambda x=entry_index: self.edit_entry(list_index, x)])
+                mc.append([entry,
+                           lambda x=entry_index: self.edit_entry(list_index, x),
+                           lambda x=entry_index: self.entry_menu(list_index, x),
+                ])
             mc.append(["Add entry", lambda: self.add_entry(list_index)])
             return mc
-        Menu([], self.i, self.o, contents_hook=get_contents, name=self.menu_name+" main menu").activate()
+        Menu([], self.i, self.o, contents_hook=get_contents, name=self.menu_name+f" list {list_index} menu").activate()
+
+    def list_options(self, list_index):
+        mc = [
+            ["Rename list", lambda: self.remove_list(list_index)],
+            ["Remove list", lambda: self.edit_name(list_index)]
+        ]
+        Menu(mc, self.i, self.o, name=self.menu_name+f" list {list_index} options menu").activate()
+
+    def remove_list(self, list_index):
+        db = DialogBox("yn", self.i, self.o, message="Remove list?", name=self.menu_name+f"list {list_index} removal DialogBox")
+        answer = db.activate()
+        if not answer:
+            return
+        list = self.config["lists"].pop(list_index)
+        self.config["deleted"].append({"type":"list", "contents":list})
+        self.save_config()
+        raise MenuExitException
 
     def on_start(self):
         """This function is called when you click on the app in the main menu"""
         def get_contents():
             mc = []
             for index, list in enumerate(self.config["lists"]):
-                mc.append([list.get("name", "List name missing!"), lambda x=index: self.list_menu(x)])
+                mc.append([list.get("name", "List name missing!"), \
+                lambda x=index: self.list_menu(x), \
+                lambda x=index: self.list_options(x),])
             mc.append(["Settings", self.settings_menu])
             return mc
         m = Menu([], self.i, self.o, contents_hook=get_contents, name=self.menu_name+" main menu")
